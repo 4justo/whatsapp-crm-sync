@@ -1,15 +1,53 @@
 import { WhatsAppMessage, ExtractedCustomerInfo } from '../types/index.js';
+import { OrderInfo } from '../types/order.js';
 import { AIAnalyzer } from './aiAnalyzer.js';
 import { HubSpotIntegration } from '../integrations/hubspot.js';
+import { ShopifyIntegration } from '../integrations/shopify.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
   private hubspot: HubSpotIntegration;
+  private shopify?: ShopifyIntegration;
   private conversationHistory: Map<string, string[]> = new Map();
 
-  constructor(openaiKey: string, hubspotKey: string) {
+  constructor(openaiKey: string, hubspotKey: string, shopifyConfig?: { storeUrl: string; accessToken: string }) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.hubspot = new HubSpotIntegration(hubspotKey);
+    if (shopifyConfig) {
+      this.shopify = new ShopifyIntegration(shopifyConfig.storeUrl, shopifyConfig.accessToken);
+    }
+  }
+
+  async extractOrderInfo(message: string): Promise<OrderInfo | null> {
+    const systemPrompt = `Extract order information from WhatsApp message. Return JSON with:
+- products: array of {name, quantity, variant, price}
+- customer: {name, email, phone, address}
+- notes: any additional instructions
+Return null if no order detected.`;
+
+    try {
+      const response = await this.aiAnalyzer['openai'].chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' }
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) return null;
+
+      const order = JSON.parse(content) as OrderInfo;
+      if (order.products && order.products.length > 0) {
+        return order;
+      }
+      return null;
+    } catch (error) {
+      console.error('Order extraction failed:', error);
+      return null;
+    }
   }
 
   async processMessage(message: WhatsAppMessage, contactName?: string): Promise<void> {
@@ -20,29 +58,32 @@ export class MessageProcessor {
 
     console.log(`Processing message from ${phone}: ${text}`);
 
-    // Track conversation history
     const history = this.conversationHistory.get(phone) || [];
     history.push(text);
-    this.conversationHistory.set(phone, history.slice(-10)); // Keep last 10 messages
+    this.conversationHistory.set(phone, history.slice(-10));
 
     try {
-      // Extract customer info using AI
       const customerInfo: ExtractedCustomerInfo = await this.aiAnalyzer.extractCustomerInfo(text, history);
 
-      // Add contact name from WhatsApp if available
       if (contactName && !customerInfo.name) {
         customerInfo.name = contactName;
       }
 
-      // Sync to HubSpot
       const contactId = await this.hubspot.findOrCreateContact(phone, customerInfo);
-
-      // Log the conversation
       await this.hubspot.logConversation(contactId, text, true);
 
-      // Update contact with extracted info
       if (Object.keys(customerInfo).length > 0) {
         await this.hubspot.updateContact(contactId, customerInfo);
+      }
+
+      if (this.shopify) {
+        const order = await this.extractOrderInfo(text);
+        if (order) {
+          order.customer.phone = phone;
+          const orderId = await this.shopify.createOrder(order);
+          console.log(`Created Shopify order: ${orderId}`);
+          await this.hubspot.logConversation(contactId, `Created Shopify order #${orderId}`, false);
+        }
       }
 
       console.log(`Successfully processed and synced message from ${phone}`);
