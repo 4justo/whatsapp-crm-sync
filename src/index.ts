@@ -100,6 +100,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Analytics endpoint
+app.get('/analytics', (req, res) => {
+  const analytics = processor.getAnalytics();
+  res.json(analytics);
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`WhatsApp CRM Sync server running on port ${PORT}`);

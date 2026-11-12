@@ -7,6 +7,7 @@ import { ShopifyIntegration } from '../integrations/shopify.js';
 import { LeadScorer } from './leadScorer.js';
 import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
 import { CRMInterface } from './crmInterface.js';
+import { AnalyticsService } from './analytics.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -14,6 +15,7 @@ export class MessageProcessor {
   private shopify?: ShopifyIntegration;
   private calendar?: GoogleCalendarIntegration;
   private leadScorer: LeadScorer;
+  private analytics: AnalyticsService;
   private conversationHistory: Map<string, string[]> = new Map();
 
   constructor(
@@ -24,6 +26,7 @@ export class MessageProcessor {
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.leadScorer = new LeadScorer();
+    this.analytics = new AnalyticsService();
 
     if (crmConfig.type === 'hubspot') {
       this.crm = new HubSpotIntegration(crmConfig.apiKey);
@@ -99,6 +102,7 @@ Return null if no order detected.`;
 
       const leadScore = this.leadScorer.scoreLead(customerInfo);
       console.log(`Lead score: ${leadScore.score} (${leadScore.priority}) - ${leadScore.reasons.join(', ')}`);
+      this.analytics.recordLead(leadScore.score);
 
       const assignedTo = this.leadScorer.assignLead(customerInfo);
       if (assignedTo) {
@@ -113,6 +117,9 @@ Return null if no order detected.`;
           const orderId = await this.shopify.createOrder(order);
           console.log(`Created Shopify order: ${orderId}`);
           await this.crm.logConversation(contactId, `Created Shopify order #${orderId}`, false);
+
+          const orderValue = order.products.reduce((sum, p) => sum + (p.price || 0), 0);
+          this.analytics.recordOrder(orderValue, order.products[0]?.name || 'unknown');
         }
       }
 
@@ -122,8 +129,12 @@ Return null if no order detected.`;
           const eventId = await this.calendar.createAppointment(appointment);
           console.log(`Created calendar event: ${eventId}`);
           await this.crm.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
+          this.analytics.recordAppointment(appointment.startTime);
         }
       }
+
+      const intent = await this.aiAnalyzer.classifyIntent(text);
+      this.analytics.recordMessage(intent);
 
       console.log(`Successfully processed and synced message from ${phone}`);
     } catch (error) {
@@ -133,5 +144,9 @@ Return null if no order detected.`;
 
   async classifyMessage(message: string): Promise<string> {
     return await this.aiAnalyzer.classifyIntent(message);
+  }
+
+  getAnalytics() {
+    return this.analytics.getAnalytics();
   }
 }
