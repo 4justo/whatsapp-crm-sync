@@ -8,9 +8,11 @@ import { LeadScorer } from './leadScorer.js';
 import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
 import { CRMInterface } from './crmInterface.js';
 import { AnalyticsService } from './analytics.js';
+import { SentimentAnalyzer } from './sentimentAnalyzer.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
+  private sentimentAnalyzer: SentimentAnalyzer;
   private crm: CRMInterface;
   private shopify?: ShopifyIntegration;
   private calendar?: GoogleCalendarIntegration;
@@ -25,6 +27,7 @@ export class MessageProcessor {
     calendarConfig?: { accessToken: string; calendarId?: string }
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
+    this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
     this.leadScorer = new LeadScorer();
     this.analytics = new AnalyticsService();
 
@@ -50,7 +53,7 @@ export class MessageProcessor {
 Return null if no order detected.`;
 
     try {
-      const response = await this.aiAnalyzer['openai'].chat.completions.create({
+      const response = await this.aiAnalyzer.getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
@@ -88,6 +91,16 @@ Return null if no order detected.`;
 
     try {
       const customerInfo: ExtractedCustomerInfo = await this.aiAnalyzer.extractCustomerInfo(text, history);
+
+      const sentiment = await this.sentimentAnalyzer.analyzeSentiment(text);
+      customerInfo.sentiment = sentiment.sentiment;
+
+      const urgency = await this.sentimentAnalyzer.detectUrgency(text);
+      customerInfo.urgency = urgency.urgencyLevel;
+
+      if (urgency.isUrgent) {
+        console.log(`URGENT message detected: ${urgency.reason}`);
+      }
 
       if (contactName && !customerInfo.name) {
         customerInfo.name = contactName;

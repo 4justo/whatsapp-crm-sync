@@ -9,6 +9,10 @@ export class AIAnalyzer {
     this.openai = new OpenAI({ apiKey });
   }
 
+  getOpenAI(): OpenAI {
+    return this.openai;
+  }
+
   async extractCustomerInfo(message: string, conversationHistory: string[] = []): Promise<ExtractedCustomerInfo> {
     const systemPrompt = `You are a business intelligence assistant. Extract structured customer information from WhatsApp messages.
 Extract: name, email, phone, company, intent (what they want), pain points (problems they mention), budget, timeline.

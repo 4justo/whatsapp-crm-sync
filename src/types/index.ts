@@ -29,6 +29,8 @@ export interface ExtractedCustomerInfo {
   painPoints?: string[];
   budget?: string;
   timeline?: string;
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  urgency?: 'low' | 'medium' | 'high';
 }
 
 export interface HubSpotContact {
