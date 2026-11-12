@@ -26,11 +26,17 @@ const calendarConfig = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN ? {
   calendarId: process.env.GOOGLE_CALENDAR_ID
 } : undefined;
 
+const whatsappConfig = process.env.ENABLE_AUTO_REPLY === 'true' ? {
+  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!
+} : undefined;
+
 const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
   crmConfig,
   shopifyConfig,
-  calendarConfig
+  calendarConfig,
+  whatsappConfig
 );
 
 // Middleware

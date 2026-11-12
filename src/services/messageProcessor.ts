@@ -9,6 +9,7 @@ import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
 import { CRMInterface } from './crmInterface.js';
 import { AnalyticsService } from './analytics.js';
 import { SentimentAnalyzer } from './sentimentAnalyzer.js';
+import { WhatsAppSender } from '../integrations/whatsappSender.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -16,6 +17,7 @@ export class MessageProcessor {
   private crm: CRMInterface;
   private shopify?: ShopifyIntegration;
   private calendar?: GoogleCalendarIntegration;
+  private whatsappSender?: WhatsAppSender;
   private leadScorer: LeadScorer;
   private analytics: AnalyticsService;
   private conversationHistory: Map<string, string[]> = new Map();
@@ -24,7 +26,8 @@ export class MessageProcessor {
     openaiKey: string,
     crmConfig: { type: CRMType; apiKey: string; instanceUrl?: string },
     shopifyConfig?: { storeUrl: string; accessToken: string },
-    calendarConfig?: { accessToken: string; calendarId?: string }
+    calendarConfig?: { accessToken: string; calendarId?: string },
+    whatsappConfig?: { phoneNumberId: string; accessToken: string }
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
@@ -42,6 +45,9 @@ export class MessageProcessor {
     }
     if (calendarConfig) {
       this.calendar = new GoogleCalendarIntegration(calendarConfig.accessToken, calendarConfig.calendarId);
+    }
+    if (whatsappConfig) {
+      this.whatsappSender = new WhatsAppSender(whatsappConfig.phoneNumberId, whatsappConfig.accessToken);
     }
   }
 
@@ -149,6 +155,15 @@ Return null if no order detected.`;
       const intent = await this.aiAnalyzer.classifyIntent(text);
       this.analytics.recordMessage(intent);
 
+      if (this.whatsappSender) {
+        if (urgency.isUrgent || sentiment.sentiment === 'negative') {
+          const autoReply = this.generateAutoReply(urgency, sentiment, customerInfo);
+          await this.whatsappSender.sendTextMessage(phone, autoReply);
+          console.log(`Sent auto-reply to ${phone}`);
+          await this.crm.logConversation(contactId, `Auto-reply sent: ${autoReply}`, false);
+        }
+      }
+
       console.log(`Successfully processed and synced message from ${phone}`);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -161,5 +176,17 @@ Return null if no order detected.`;
 
   getAnalytics() {
     return this.analytics.getAnalytics();
+  }
+
+  private generateAutoReply(urgency: { isUrgent: boolean; urgencyLevel: string }, sentiment: { sentiment: string }, customerInfo: ExtractedCustomerInfo): string {
+    if (urgency.isUrgent) {
+      return `Thank you for your message. This has been flagged as urgent and our team will respond within 1 hour.`;
+    }
+
+    if (sentiment.sentiment === 'negative') {
+      return `We're sorry to hear you're having trouble. A support specialist will review your case and reach out shortly to help resolve this.`;
+    }
+
+    return `Thanks for reaching out! We've received your message and someone from our team will get back to you soon.`;
   }
 }
