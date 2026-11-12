@@ -4,20 +4,30 @@ import { AIAnalyzer } from './aiAnalyzer.js';
 import { HubSpotIntegration } from '../integrations/hubspot.js';
 import { ShopifyIntegration } from '../integrations/shopify.js';
 import { LeadScorer } from './leadScorer.js';
+import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
   private hubspot: HubSpotIntegration;
   private shopify?: ShopifyIntegration;
+  private calendar?: GoogleCalendarIntegration;
   private leadScorer: LeadScorer;
   private conversationHistory: Map<string, string[]> = new Map();
 
-  constructor(openaiKey: string, hubspotKey: string, shopifyConfig?: { storeUrl: string; accessToken: string }) {
+  constructor(
+    openaiKey: string,
+    hubspotKey: string,
+    shopifyConfig?: { storeUrl: string; accessToken: string },
+    calendarConfig?: { accessToken: string; calendarId?: string }
+  ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.hubspot = new HubSpotIntegration(hubspotKey);
     this.leadScorer = new LeadScorer();
     if (shopifyConfig) {
       this.shopify = new ShopifyIntegration(shopifyConfig.storeUrl, shopifyConfig.accessToken);
+    }
+    if (calendarConfig) {
+      this.calendar = new GoogleCalendarIntegration(calendarConfig.accessToken, calendarConfig.calendarId);
     }
   }
 
@@ -95,6 +105,15 @@ Return null if no order detected.`;
           const orderId = await this.shopify.createOrder(order);
           console.log(`Created Shopify order: ${orderId}`);
           await this.hubspot.logConversation(contactId, `Created Shopify order #${orderId}`, false);
+        }
+      }
+
+      if (this.calendar) {
+        const appointment = await this.aiAnalyzer.extractAppointmentInfo(text);
+        if (appointment) {
+          const eventId = await this.calendar.createAppointment(appointment);
+          console.log(`Created calendar event: ${eventId}`);
+          await this.hubspot.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
         }
       }
 

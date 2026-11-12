@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { ExtractedCustomerInfo } from '../types/index.js';
+import { AppointmentInfo } from '../types/calendar.js';
 
 export class AIAnalyzer {
   private openai: OpenAI;
@@ -62,6 +63,45 @@ Return ONLY the category name.`;
     } catch (error) {
       console.error('Intent classification failed:', error);
       return 'other';
+    }
+  }
+
+  async extractAppointmentInfo(message: string): Promise<AppointmentInfo | null> {
+    const systemPrompt = `Extract appointment information from WhatsApp message. Return JSON with:
+- title: meeting/appointment title
+- description: any additional details
+- startTime: ISO 8601 date-time (parse natural language like "Tuesday at 2pm")
+- endTime: ISO 8601 date-time (assume 1 hour duration if not specified)
+- attendeeEmail: email if mentioned
+- attendeeName: name if mentioned
+- location: physical location or video call link
+Return null if no appointment requested.`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' }
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) return null;
+
+      const appointment = JSON.parse(content) as AppointmentInfo;
+      appointment.startTime = new Date(appointment.startTime);
+      appointment.endTime = new Date(appointment.endTime);
+
+      if (appointment.title) {
+        return appointment;
+      }
+      return null;
+    } catch (error) {
+      console.error('Appointment extraction failed:', error);
+      return null;
     }
   }
 }
