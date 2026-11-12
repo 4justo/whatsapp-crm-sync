@@ -3,16 +3,19 @@ import { OrderInfo } from '../types/order.js';
 import { AIAnalyzer } from './aiAnalyzer.js';
 import { HubSpotIntegration } from '../integrations/hubspot.js';
 import { ShopifyIntegration } from '../integrations/shopify.js';
+import { LeadScorer } from './leadScorer.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
   private hubspot: HubSpotIntegration;
   private shopify?: ShopifyIntegration;
+  private leadScorer: LeadScorer;
   private conversationHistory: Map<string, string[]> = new Map();
 
   constructor(openaiKey: string, hubspotKey: string, shopifyConfig?: { storeUrl: string; accessToken: string }) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.hubspot = new HubSpotIntegration(hubspotKey);
+    this.leadScorer = new LeadScorer();
     if (shopifyConfig) {
       this.shopify = new ShopifyIntegration(shopifyConfig.storeUrl, shopifyConfig.accessToken);
     }
@@ -74,6 +77,15 @@ Return null if no order detected.`;
 
       if (Object.keys(customerInfo).length > 0) {
         await this.hubspot.updateContact(contactId, customerInfo);
+      }
+
+      const leadScore = this.leadScorer.scoreLead(customerInfo);
+      console.log(`Lead score: ${leadScore.score} (${leadScore.priority}) - ${leadScore.reasons.join(', ')}`);
+
+      const assignedTo = this.leadScorer.assignLead(customerInfo);
+      if (assignedTo) {
+        console.log(`Lead assigned to: ${assignedTo}`);
+        await this.hubspot.logConversation(contactId, `Lead assigned to ${assignedTo} (Score: ${leadScore.score})`, false);
       }
 
       if (this.shopify) {
