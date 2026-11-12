@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { WhatsAppWebhookPayload } from './types/index.js';
+import { WhatsAppWebhookPayload, CRMType } from './types/index.js';
 import { MessageProcessor } from './services/messageProcessor.js';
 
 dotenv.config();
@@ -8,19 +8,29 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Environment validation
-const requiredEnvVars = ['WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'HUBSPOT_API_KEY', 'OPENAI_API_KEY'];
-const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+const crmType = (process.env.CRM_TYPE || 'hubspot') as CRMType;
 
-if (missingVars.length > 0) {
-  console.error('Missing required environment variables:', missingVars);
-  process.exit(1);
-}
+const crmConfig = {
+  type: crmType,
+  apiKey: crmType === 'hubspot' ? process.env.HUBSPOT_API_KEY! : process.env.SALESFORCE_ACCESS_TOKEN!,
+  instanceUrl: crmType === 'salesforce' ? process.env.SALESFORCE_INSTANCE_URL : undefined
+};
 
-// Initialize message processor
+const shopifyConfig = process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCESS_TOKEN ? {
+  storeUrl: process.env.SHOPIFY_STORE_URL,
+  accessToken: process.env.SHOPIFY_ACCESS_TOKEN
+} : undefined;
+
+const calendarConfig = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN ? {
+  accessToken: process.env.GOOGLE_CALENDAR_ACCESS_TOKEN,
+  calendarId: process.env.GOOGLE_CALENDAR_ID
+} : undefined;
+
 const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
-  process.env.HUBSPOT_API_KEY!
+  crmConfig,
+  shopifyConfig,
+  calendarConfig
 );
 
 // Middleware

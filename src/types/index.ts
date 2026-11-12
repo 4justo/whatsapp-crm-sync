@@ -51,3 +51,5 @@ export interface HubSpotNote {
     contactIds: number[];
   };
 }
+
+export type CRMType = 'hubspot' | 'salesforce';

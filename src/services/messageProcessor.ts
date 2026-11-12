@@ -1,14 +1,16 @@
-import { WhatsAppMessage, ExtractedCustomerInfo } from '../types/index.js';
+import { WhatsAppMessage, ExtractedCustomerInfo, CRMType } from '../types/index.js';
 import { OrderInfo } from '../types/order.js';
 import { AIAnalyzer } from './aiAnalyzer.js';
 import { HubSpotIntegration } from '../integrations/hubspot.js';
+import { SalesforceIntegration } from '../integrations/salesforce.js';
 import { ShopifyIntegration } from '../integrations/shopify.js';
 import { LeadScorer } from './leadScorer.js';
 import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
+import { CRMInterface } from './crmInterface.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
-  private hubspot: HubSpotIntegration;
+  private crm: CRMInterface;
   private shopify?: ShopifyIntegration;
   private calendar?: GoogleCalendarIntegration;
   private leadScorer: LeadScorer;
@@ -16,13 +18,19 @@ export class MessageProcessor {
 
   constructor(
     openaiKey: string,
-    hubspotKey: string,
+    crmConfig: { type: CRMType; apiKey: string; instanceUrl?: string },
     shopifyConfig?: { storeUrl: string; accessToken: string },
     calendarConfig?: { accessToken: string; calendarId?: string }
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
-    this.hubspot = new HubSpotIntegration(hubspotKey);
     this.leadScorer = new LeadScorer();
+
+    if (crmConfig.type === 'hubspot') {
+      this.crm = new HubSpotIntegration(crmConfig.apiKey);
+    } else if (crmConfig.type === 'salesforce') {
+      this.crm = new SalesforceIntegration(crmConfig.instanceUrl!, crmConfig.apiKey);
+    }
+
     if (shopifyConfig) {
       this.shopify = new ShopifyIntegration(shopifyConfig.storeUrl, shopifyConfig.accessToken);
     }
@@ -82,11 +90,11 @@ Return null if no order detected.`;
         customerInfo.name = contactName;
       }
 
-      const contactId = await this.hubspot.findOrCreateContact(phone, customerInfo);
-      await this.hubspot.logConversation(contactId, text, true);
+      const contactId = await this.crm.findOrCreateContact(phone, customerInfo);
+      await this.crm.logConversation(contactId, text, true);
 
       if (Object.keys(customerInfo).length > 0) {
-        await this.hubspot.updateContact(contactId, customerInfo);
+        await this.crm.updateContact(contactId, customerInfo);
       }
 
       const leadScore = this.leadScorer.scoreLead(customerInfo);
@@ -95,7 +103,7 @@ Return null if no order detected.`;
       const assignedTo = this.leadScorer.assignLead(customerInfo);
       if (assignedTo) {
         console.log(`Lead assigned to: ${assignedTo}`);
-        await this.hubspot.logConversation(contactId, `Lead assigned to ${assignedTo} (Score: ${leadScore.score})`, false);
+        await this.crm.logConversation(contactId, `Lead assigned to ${assignedTo} (Score: ${leadScore.score})`, false);
       }
 
       if (this.shopify) {
@@ -104,7 +112,7 @@ Return null if no order detected.`;
           order.customer.phone = phone;
           const orderId = await this.shopify.createOrder(order);
           console.log(`Created Shopify order: ${orderId}`);
-          await this.hubspot.logConversation(contactId, `Created Shopify order #${orderId}`, false);
+          await this.crm.logConversation(contactId, `Created Shopify order #${orderId}`, false);
         }
       }
 
@@ -113,7 +121,7 @@ Return null if no order detected.`;
         if (appointment) {
           const eventId = await this.calendar.createAppointment(appointment);
           console.log(`Created calendar event: ${eventId}`);
-          await this.hubspot.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
+          await this.crm.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
         }
       }
 

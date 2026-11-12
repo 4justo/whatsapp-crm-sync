@@ -1,14 +1,15 @@
 import { HubSpotClient } from '@hubspot/api-client';
 import { HubSpotContact, HubSpotNote, ExtractedCustomerInfo } from '../types/index.js';
+import { CRMInterface } from '../services/crmInterface.js';
 
-export class HubSpotIntegration {
+export class HubSpotIntegration implements CRMInterface {
   private client: HubSpotClient;
 
   constructor(apiKey: string) {
     this.client = new HubSpotClient({ apiKey });
   }
 
-  async findOrCreateContact(phone: string, info: ExtractedCustomerInfo): Promise<number> {
+  async findOrCreateContact(phone: string, info: ExtractedCustomerInfo): Promise<string | number> {
     try {
       // Search for existing contact by phone
       const searchResponse = await this.client.crm.contacts.searchApi.doSearch({
@@ -52,7 +53,7 @@ export class HubSpotIntegration {
     }
   }
 
-  async logConversation(contactId: number, message: string, fromCustomer: boolean): Promise<void> {
+  async logConversation(contactId: string | number, message: string, fromCustomer: boolean): Promise<void> {
     try {
       const note: HubSpotNote = {
         engagement: {
@@ -73,7 +74,7 @@ export class HubSpotIntegration {
     }
   }
 
-  async updateContact(contactId: number, info: ExtractedCustomerInfo): Promise<void> {
+  async updateContact(contactId: string | number, info: ExtractedCustomerInfo): Promise<void> {
     try {
       const contact: HubSpotContact = {
         properties: {
