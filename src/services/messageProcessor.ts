@@ -4,6 +4,7 @@ import { AIAnalyzer } from './aiAnalyzer.js';
 import { HubSpotIntegration } from '../integrations/hubspot.js';
 import { SalesforceIntegration } from '../integrations/salesforce.js';
 import { PipedriveIntegration } from '../integrations/pipedrive.js';
+import { NotionIntegration } from '../integrations/notion.js';
 import { ShopifyIntegration } from '../integrations/shopify.js';
 import { WooCommerceIntegration } from '../integrations/woocommerce.js';
 import { LeadScorer } from './leadScorer.js';
@@ -48,6 +49,8 @@ export class MessageProcessor {
       this.crm = new SalesforceIntegration(crmConfig.instanceUrl!, crmConfig.apiKey);
     } else if (crmConfig.type === 'pipedrive') {
       this.crm = new PipedriveIntegration(crmConfig.apiKey, crmConfig.instanceUrl!);
+    } else if (crmConfig.type === 'notion') {
+      this.crm = new NotionIntegration(crmConfig.apiKey, crmConfig.instanceUrl!);
     }
 
     if (shopifyConfig) {

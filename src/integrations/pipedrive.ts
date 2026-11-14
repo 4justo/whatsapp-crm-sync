@@ -10,7 +10,7 @@ export class PipedriveIntegration implements CRMInterface {
     this.companyDomain = companyDomain.replace(/\/$/, '');
   }
 
-  async findOrCreatePerson(phone: string, info: ExtractedCustomerInfo): Promise<number> {
+  async findOrCreateContact(phone: string, info: ExtractedCustomerInfo): Promise<string | number> {
     const searchResponse = await fetch(
       `${this.companyDomain}/api/v1/persons/search?term=${encodeURIComponent(phone)}&fields=phone`,
       {
@@ -52,11 +52,11 @@ export class PipedriveIntegration implements CRMInterface {
     return createData.data.id;
   }
 
-  async logActivity(personId: number, message: string, fromCustomer: boolean): Promise<void> {
+  async logConversation(contactId: string | number, message: string, fromCustomer: boolean): Promise<void> {
     const activityData = {
       subject: `WhatsApp Message - ${fromCustomer ? 'Customer' : 'Business'}`,
       note: message,
-      person_id: personId,
+      person_id: contactId as number,
       type: 'note'
     };
 
@@ -76,10 +76,10 @@ export class PipedriveIntegration implements CRMInterface {
       throw new Error(`Pipedrive API error: ${response.statusText}`);
     }
 
-    console.log(`Logged activity for Pipedrive person ${personId}`);
+    console.log(`Logged activity for Pipedrive person ${contactId}`);
   }
 
-  async updatePerson(personId: number, info: ExtractedCustomerInfo): Promise<void> {
+  async updateContact(contactId: string | number, info: ExtractedCustomerInfo): Promise<void> {
     const updateData: Record<string, unknown> = {};
     if (info.email) updateData.email = info.email;
     if (info.company) updateData.org_id = await this.findOrCreateCompany(info.company);
@@ -87,7 +87,7 @@ export class PipedriveIntegration implements CRMInterface {
     if (Object.keys(updateData).length === 0) return;
 
     const response = await fetch(
-      `${this.companyDomain}/api/v1/persons/${personId}`,
+      `${this.companyDomain}/api/v1/persons/${contactId}`,
       {
         method: 'PUT',
         headers: {
@@ -102,7 +102,7 @@ export class PipedriveIntegration implements CRMInterface {
       throw new Error(`Pipedrive API error: ${response.statusText}`);
     }
 
-    console.log(`Updated Pipedrive person ${personId}`);
+    console.log(`Updated Pipedrive person ${contactId}`);
   }
 
   private async findOrCreateCompany(name: string): Promise<number> {

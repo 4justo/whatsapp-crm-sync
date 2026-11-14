@@ -54,4 +54,4 @@ export interface HubSpotNote {
   };
 }
 
-export type CRMType = 'hubspot' | 'salesforce' | 'pipedrive';
+export type CRMType = 'hubspot' | 'salesforce' | 'pipedrive' | 'notion';

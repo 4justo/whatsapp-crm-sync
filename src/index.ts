@@ -14,9 +14,11 @@ const crmConfig = {
   type: crmType,
   apiKey: crmType === 'hubspot' ? process.env.HUBSPOT_API_KEY! : 
           crmType === 'salesforce' ? process.env.SALESFORCE_ACCESS_TOKEN! :
-          process.env.PIPEDRIVE_API_TOKEN!,
+          crmType === 'pipedrive' ? process.env.PIPEDRIVE_API_TOKEN! :
+          process.env.NOTION_ACCESS_TOKEN!,
   instanceUrl: crmType === 'salesforce' ? process.env.SALESFORCE_INSTANCE_URL : 
-                crmType === 'pipedrive' ? process.env.PIPEDRIVE_COMPANY_DOMAIN : undefined
+                crmType === 'pipedrive' ? process.env.PIPEDRIVE_COMPANY_DOMAIN :
+                crmType === 'notion' ? process.env.NOTION_DATABASE_ID : undefined
 };
 
 const shopifyConfig = process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCESS_TOKEN ? {

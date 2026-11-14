@@ -10,7 +10,7 @@ export class SalesforceIntegration implements CRMInterface {
     this.accessToken = accessToken;
   }
 
-  async findOrCreateContact(phone: string, info: ExtractedCustomerInfo): Promise<number> {
+  async findOrCreateContact(phone: string, info: ExtractedCustomerInfo): Promise<string | number> {
     const query = `SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Phone = '${phone}' LIMIT 1`;
 
     const searchResponse = await fetch(`${this.instanceUrl}/services/data/v60.0/query?q=${encodeURIComponent(query)}`, {
@@ -52,7 +52,7 @@ export class SalesforceIntegration implements CRMInterface {
     return createData.id;
   }
 
-  async logConversation(contactId: number, message: string, fromCustomer: boolean): Promise<void> {
+  async logConversation(contactId: string | number, message: string, fromCustomer: boolean): Promise<void> {
     const activityData = {
       Subject: `WhatsApp Message - ${fromCustomer ? 'Customer' : 'Business'}`,
       Description: message,
@@ -75,7 +75,7 @@ export class SalesforceIntegration implements CRMInterface {
     console.log(`Logged activity for Salesforce contact ${contactId}`);
   }
 
-  async updateContact(contactId: number, info: ExtractedCustomerInfo): Promise<void> {
+  async updateContact(contactId: string | number, info: ExtractedCustomerInfo): Promise<void> {
     const updateData: Record<string, string> = {};
     if (info.email) updateData.Email = info.email;
     if (info.company) updateData.Company = info.company;
