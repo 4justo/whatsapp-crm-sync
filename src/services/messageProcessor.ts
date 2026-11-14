@@ -17,6 +17,7 @@ import { WorkflowEngine } from './workflowEngine.js';
 import { WorkflowContext } from '../types/workflow.js';
 import { StorageAdapter } from '../types/storage.js';
 import { OrderParser } from './orderParser.js';
+import { ConversationSummarizer, ConversationSummary } from './conversationSummarizer.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -31,6 +32,8 @@ export class MessageProcessor {
   private analytics: AnalyticsService;
   private storage: StorageAdapter;
   private orderParser: OrderParser;
+  private summarizer: ConversationSummarizer;
+  private summaryThreshold: number;
 
   constructor(
     openaiKey: string,
@@ -40,7 +43,8 @@ export class MessageProcessor {
     calendarConfig?: { accessToken: string; calendarId?: string },
     whatsappConfig?: { phoneNumberId: string; accessToken: string },
     storage: StorageAdapter,
-    productCatalog?: Array<{ name: string; price: number; sku?: string }>
+    productCatalog?: Array<{ name: string; price: number; sku?: string }>,
+    summaryThreshold: number = 5
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
@@ -49,6 +53,8 @@ export class MessageProcessor {
     this.workflowEngine = new WorkflowEngine(whatsappConfig ? new WhatsAppSender(whatsappConfig.phoneNumberId, whatsappConfig.accessToken) : undefined);
     this.storage = storage;
     this.orderParser = new OrderParser(productCatalog);
+    this.summarizer = new ConversationSummarizer(openaiKey);
+    this.summaryThreshold = summaryThreshold;
 
     if (crmConfig.type === 'hubspot') {
       this.crm = new HubSpotIntegration(crmConfig.apiKey);
@@ -222,6 +228,25 @@ Return null if no order detected.`;
         }
       }
 
+      if (history.length >= this.summaryThreshold) {
+        const summary = await this.summarizer.summarizeConversation(
+          phone,
+          history,
+          customerInfo.name,
+          sentiment.sentiment,
+          urgency.urgencyLevel
+        );
+
+        await this.storage.set(`summary:${phone}`, JSON.stringify(summary));
+        console.log(`Generated conversation summary for ${phone}`);
+
+        if (this.whatsappSender && process.env.SEND_SUMMARY_TO_BUSINESS === 'true') {
+          const formattedSummary = this.summarizer.formatSummaryForDelivery(summary);
+          await this.whatsappSender.sendTextMessage(process.env.BUSINESS_PHONE_NUMBER!, formattedSummary);
+          console.log(`Sent summary to business phone`);
+        }
+      }
+
       console.log(`Successfully processed and synced message from ${phone}`);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -234,6 +259,14 @@ Return null if no order detected.`;
 
   getAnalytics() {
     return this.analytics.getAnalytics();
+  }
+
+  async getConversationSummary(phone: string): Promise<ConversationSummary | null> {
+    const stored = await this.storage.get(`summary:${phone}`);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
   }
 
   private generateAutoReply(urgency: { isUrgent: boolean; urgencyLevel: string }, sentiment: { sentiment: string }, customerInfo: ExtractedCustomerInfo): string {

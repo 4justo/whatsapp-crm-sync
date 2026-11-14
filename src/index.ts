@@ -51,6 +51,7 @@ const storage = process.env.REDIS_URL ? new RedisStorage(process.env.REDIS_URL) 
 const idempotency = new IdempotencyMiddleware(storage);
 
 const productCatalog = process.env.PRODUCT_CATALOG ? JSON.parse(process.env.PRODUCT_CATALOG) : undefined;
+const summaryThreshold = parseInt(process.env.SUMMARY_THRESHOLD || '5', 10);
 
 const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
@@ -60,7 +61,8 @@ const processor = new MessageProcessor(
   calendarConfig,
   whatsappConfig,
   storage,
-  productCatalog
+  productCatalog,
+  summaryThreshold
 );
 
 // Middleware
@@ -136,6 +138,20 @@ app.get('/health', (req, res) => {
 app.get('/analytics', (req, res) => {
   const analytics = processor.getAnalytics();
   res.json(analytics);
+});
+
+// Conversation summary endpoint
+app.get('/summary/:phone', async (req, res) => {
+  try {
+    const summary = await processor.getConversationSummary(req.params.phone);
+    if (summary) {
+      res.json(summary);
+    } else {
+      res.status(404).json({ error: 'No summary found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve summary' });
+  }
 });
 
 // Start server
