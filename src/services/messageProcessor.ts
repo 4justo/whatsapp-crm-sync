@@ -15,6 +15,7 @@ import { SentimentAnalyzer } from './sentimentAnalyzer.js';
 import { WhatsAppSender } from '../integrations/whatsappSender.js';
 import { WorkflowEngine } from './workflowEngine.js';
 import { WorkflowContext } from '../types/workflow.js';
+import { StorageAdapter } from '../types/storage.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -27,7 +28,7 @@ export class MessageProcessor {
   private workflowEngine: WorkflowEngine;
   private leadScorer: LeadScorer;
   private analytics: AnalyticsService;
-  private conversationHistory: Map<string, string[]> = new Map();
+  private storage: StorageAdapter;
 
   constructor(
     openaiKey: string,
@@ -35,13 +36,15 @@ export class MessageProcessor {
     shopifyConfig?: { storeUrl: string; accessToken: string },
     woocommerceConfig?: { storeUrl: string; consumerKey: string; consumerSecret: string },
     calendarConfig?: { accessToken: string; calendarId?: string },
-    whatsappConfig?: { phoneNumberId: string; accessToken: string }
+    whatsappConfig?: { phoneNumberId: string; accessToken: string },
+    storage: StorageAdapter
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
     this.leadScorer = new LeadScorer();
     this.analytics = new AnalyticsService();
     this.workflowEngine = new WorkflowEngine(whatsappConfig ? new WhatsAppSender(whatsappConfig.phoneNumberId, whatsappConfig.accessToken) : undefined);
+    this.storage = storage;
 
     if (crmConfig.type === 'hubspot') {
       this.crm = new HubSpotIntegration(crmConfig.apiKey);
@@ -107,9 +110,11 @@ Return null if no order detected.`;
 
     console.log(`Processing message from ${phone}: ${text}`);
 
-    const history = this.conversationHistory.get(phone) || [];
+    const historyKey = `conversation:${phone}`;
+    const storedHistory = await this.storage.get(historyKey);
+    const history = storedHistory ? JSON.parse(storedHistory) : [];
     history.push(text);
-    this.conversationHistory.set(phone, history.slice(-10));
+    await this.storage.set(historyKey, JSON.stringify(history.slice(-10)));
 
     try {
       const customerInfo: ExtractedCustomerInfo = await this.aiAnalyzer.extractCustomerInfo(text, history);

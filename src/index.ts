@@ -2,6 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { WhatsAppWebhookPayload, CRMType } from './types/index.js';
 import { MessageProcessor } from './services/messageProcessor.js';
+import { FileStorage } from './services/fileStorage.js';
+import { RedisStorage } from './services/redisStorage.js';
 
 dotenv.config();
 
@@ -42,13 +44,16 @@ const whatsappConfig = process.env.ENABLE_AUTO_REPLY === 'true' ? {
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN!
 } : undefined;
 
+const storage = process.env.REDIS_URL ? new RedisStorage(process.env.REDIS_URL) : new FileStorage(process.env.STORAGE_PATH || './data');
+
 const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
   crmConfig,
   shopifyConfig,
   woocommerceConfig,
   calendarConfig,
-  whatsappConfig
+  whatsappConfig,
+  storage
 );
 
 // Middleware
