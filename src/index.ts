@@ -50,6 +50,8 @@ const storage = process.env.REDIS_URL ? new RedisStorage(process.env.REDIS_URL) 
 
 const idempotency = new IdempotencyMiddleware(storage);
 
+const productCatalog = process.env.PRODUCT_CATALOG ? JSON.parse(process.env.PRODUCT_CATALOG) : undefined;
+
 const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
   crmConfig,
@@ -57,7 +59,8 @@ const processor = new MessageProcessor(
   woocommerceConfig,
   calendarConfig,
   whatsappConfig,
-  storage
+  storage,
+  productCatalog
 );
 
 // Middleware

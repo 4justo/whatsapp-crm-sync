@@ -16,6 +16,7 @@ import { WhatsAppSender } from '../integrations/whatsappSender.js';
 import { WorkflowEngine } from './workflowEngine.js';
 import { WorkflowContext } from '../types/workflow.js';
 import { StorageAdapter } from '../types/storage.js';
+import { OrderParser } from './orderParser.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -29,6 +30,7 @@ export class MessageProcessor {
   private leadScorer: LeadScorer;
   private analytics: AnalyticsService;
   private storage: StorageAdapter;
+  private orderParser: OrderParser;
 
   constructor(
     openaiKey: string,
@@ -37,7 +39,8 @@ export class MessageProcessor {
     woocommerceConfig?: { storeUrl: string; consumerKey: string; consumerSecret: string },
     calendarConfig?: { accessToken: string; calendarId?: string },
     whatsappConfig?: { phoneNumberId: string; accessToken: string },
-    storage: StorageAdapter
+    storage: StorageAdapter,
+    productCatalog?: Array<{ name: string; price: number; sku?: string }>
   ) {
     this.aiAnalyzer = new AIAnalyzer(openaiKey);
     this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
@@ -45,6 +48,7 @@ export class MessageProcessor {
     this.analytics = new AnalyticsService();
     this.workflowEngine = new WorkflowEngine(whatsappConfig ? new WhatsAppSender(whatsappConfig.phoneNumberId, whatsappConfig.accessToken) : undefined);
     this.storage = storage;
+    this.orderParser = new OrderParser(productCatalog);
 
     if (crmConfig.type === 'hubspot') {
       this.crm = new HubSpotIntegration(crmConfig.apiKey);
@@ -71,6 +75,15 @@ export class MessageProcessor {
   }
 
   async extractOrderInfo(message: string): Promise<OrderInfo | null> {
+    const parsedOrder = this.orderParser.parseFromMessage(message);
+    if (parsedOrder) {
+      return {
+        products: parsedOrder.products,
+        customer: { name: '', email: '', phone: '' },
+        notes: parsedOrder.notes
+      };
+    }
+
     const systemPrompt = `Extract order information from WhatsApp message. Return JSON with:
 - products: array of {name, quantity, variant, price}
 - customer: {name, email, phone, address}
