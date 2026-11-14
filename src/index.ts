@@ -6,55 +6,74 @@ import { FileStorage } from './services/fileStorage.js';
 import { RedisStorage } from './services/redisStorage.js';
 import rateLimiter from './middleware/rateLimit.js';
 import { IdempotencyMiddleware } from './middleware/idempotency.js';
+import { ConfigManager } from './config/configManager.js';
 
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const configManager = new ConfigManager();
 
-const crmType = (process.env.CRM_TYPE || 'hubspot') as CRMType;
+const preset = process.env.INDUSTRY_PRESET;
+if (preset) {
+  try {
+    configManager.applyPreset(preset);
+  } catch (error) {
+    console.error(`Failed to apply preset: ${preset}`);
+  }
+}
+
+if (configManager.getBoolean('SIMPLE_MODE', false)) {
+  configManager.enableSimpleMode();
+}
+
+const app = express();
+const PORT = configManager.getNumber('PORT', 3000);
+
+const crmType = (configManager.get('CRM_TYPE') || 'hubspot') as CRMType;
 
 const crmConfig = {
   type: crmType,
-  apiKey: crmType === 'hubspot' ? process.env.HUBSPOT_API_KEY! : 
-          crmType === 'salesforce' ? process.env.SALESFORCE_ACCESS_TOKEN! :
-          crmType === 'pipedrive' ? process.env.PIPEDRIVE_API_TOKEN! :
-          process.env.NOTION_ACCESS_TOKEN!,
-  instanceUrl: crmType === 'salesforce' ? process.env.SALESFORCE_INSTANCE_URL : 
-                crmType === 'pipedrive' ? process.env.PIPEDRIVE_COMPANY_DOMAIN :
-                crmType === 'notion' ? process.env.NOTION_DATABASE_ID : undefined
+  apiKey: crmType === 'hubspot' ? configManager.get('HUBSPOT_API_KEY')! :
+          crmType === 'salesforce' ? configManager.get('SALESFORCE_ACCESS_TOKEN')! :
+          crmType === 'pipedrive' ? configManager.get('PIPEDRIVE_API_TOKEN')! :
+          configManager.get('NOTION_ACCESS_TOKEN')!,
+  instanceUrl: crmType === 'salesforce' ? configManager.get('SALESFORCE_INSTANCE_URL') :
+                crmType === 'pipedrive' ? configManager.get('PIPEDRIVE_COMPANY_DOMAIN') :
+                crmType === 'notion' ? configManager.get('NOTION_DATABASE_ID') : undefined
 };
 
-const shopifyConfig = process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCESS_TOKEN ? {
-  storeUrl: process.env.SHOPIFY_STORE_URL,
-  accessToken: process.env.SHOPIFY_ACCESS_TOKEN
+const shopifyConfig = configManager.get('SHOPIFY_STORE_URL') && configManager.get('SHOPIFY_ACCESS_TOKEN') ? {
+  storeUrl: configManager.get('SHOPIFY_STORE_URL')!,
+  accessToken: configManager.get('SHOPIFY_ACCESS_TOKEN')!
 } : undefined;
 
-const woocommerceConfig = process.env.WOOCOMMERCE_STORE_URL && process.env.WOOCOMMERCE_CONSUMER_KEY && process.env.WOOCOMMERCE_CONSUMER_SECRET ? {
-  storeUrl: process.env.WOOCOMMERCE_STORE_URL,
-  consumerKey: process.env.WOOCOMMERCE_CONSUMER_KEY,
-  consumerSecret: process.env.WOOCOMMERCE_CONSUMER_SECRET
+const woocommerceConfig = configManager.get('WOOCOMMERCE_STORE_URL') && configManager.get('WOOCOMMERCE_CONSUMER_KEY') && configManager.get('WOOCOMMERCE_CONSUMER_SECRET') ? {
+  storeUrl: configManager.get('WOOCOMMERCE_STORE_URL')!,
+  consumerKey: configManager.get('WOOCOMMERCE_CONSUMER_KEY')!,
+  consumerSecret: configManager.get('WOOCOMMERCE_CONSUMER_SECRET')!
 } : undefined;
 
-const calendarConfig = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN ? {
-  accessToken: process.env.GOOGLE_CALENDAR_ACCESS_TOKEN,
-  calendarId: process.env.GOOGLE_CALENDAR_ID
+const calendarConfig = configManager.get('GOOGLE_CALENDAR_ACCESS_TOKEN') ? {
+  accessToken: configManager.get('GOOGLE_CALENDAR_ACCESS_TOKEN')!,
+  calendarId: configManager.get('GOOGLE_CALENDAR_ID')
 } : undefined;
 
-const whatsappConfig = process.env.ENABLE_AUTO_REPLY === 'true' ? {
-  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
-  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!
+const whatsappConfig = configManager.getBoolean('ENABLE_AUTO_REPLY', false) ? {
+  phoneNumberId: configManager.get('WHATSAPP_PHONE_NUMBER_ID')!,
+  accessToken: configManager.get('WHATSAPP_ACCESS_TOKEN')!
 } : undefined;
 
-const storage = process.env.REDIS_URL ? new RedisStorage(process.env.REDIS_URL) : new FileStorage(process.env.STORAGE_PATH || './data');
+const storageType = configManager.get('STORAGE_TYPE') || 'file';
+const storage = storageType === 'redis' && configManager.get('REDIS_URL') ?
+  new RedisStorage(configManager.get('REDIS_URL')!) :
+  new FileStorage(configManager.get('STORAGE_PATH') || './data');
 
 const idempotency = new IdempotencyMiddleware(storage);
 
-const productCatalog = process.env.PRODUCT_CATALOG ? JSON.parse(process.env.PRODUCT_CATALOG) : undefined;
-const summaryThreshold = parseInt(process.env.SUMMARY_THRESHOLD || '5', 10);
+const productCatalog = configManager.get('PRODUCT_CATALOG') ? JSON.parse(configManager.get('PRODUCT_CATALOG')!) : undefined;
+const summaryThreshold = configManager.getNumber('SUMMARY_THRESHOLD', 5);
 
 const processor = new MessageProcessor(
-  process.env.OPENAI_API_KEY!,
+  configManager.get('OPENAI_API_KEY')!,
   crmConfig,
   shopifyConfig,
   woocommerceConfig,
@@ -196,6 +215,21 @@ app.get('/style/status/:phone', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to check status' });
   }
+});
+
+// Setup endpoints
+app.get('/setup/presets', (req, res) => {
+  res.json({ presets: configManager.getAllPresets() });
+});
+
+app.get('/setup/preset/:name', (req, res) => {
+  configManager.printPresetInfo(req.params.name);
+  res.json({ preset: req.params.name });
+});
+
+app.get('/setup/guide', (req, res) => {
+  configManager.printSetupGuide();
+  res.json({ message: 'Setup guide printed to console' });
 });
 
 // Start server

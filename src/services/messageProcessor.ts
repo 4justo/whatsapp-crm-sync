@@ -251,7 +251,7 @@ Return null if no order detected.`;
       }
 
       const autoReplyEnabled = await this.styleLearner.isAutoReplyEnabled(phone);
-      if (autoReplyEnabled && this.whatsappSender) {
+      if (autoReplyEnabled && this.whatsappSender && this.summaryThreshold > 0) {
         try {
           const styledReply = await this.styleLearner.generateStyledReply(phone, text, JSON.stringify(customerInfo));
           await this.whatsappSender.sendTextMessage(phone, styledReply);
