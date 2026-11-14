@@ -18,6 +18,7 @@ import { WorkflowContext } from '../types/workflow.js';
 import { StorageAdapter } from '../types/storage.js';
 import { OrderParser } from './orderParser.js';
 import { ConversationSummarizer, ConversationSummary } from './conversationSummarizer.js';
+import { StyleLearner } from './styleLearner.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -33,6 +34,7 @@ export class MessageProcessor {
   private storage: StorageAdapter;
   private orderParser: OrderParser;
   private summarizer: ConversationSummarizer;
+  private styleLearner: StyleLearner;
   private summaryThreshold: number;
 
   constructor(
@@ -54,6 +56,7 @@ export class MessageProcessor {
     this.storage = storage;
     this.orderParser = new OrderParser(productCatalog);
     this.summarizer = new ConversationSummarizer(openaiKey);
+    this.styleLearner = new StyleLearner(openaiKey, storage);
     this.summaryThreshold = summaryThreshold;
 
     if (crmConfig.type === 'hubspot') {
@@ -247,6 +250,18 @@ Return null if no order detected.`;
         }
       }
 
+      const autoReplyEnabled = await this.styleLearner.isAutoReplyEnabled(phone);
+      if (autoReplyEnabled && this.whatsappSender) {
+        try {
+          const styledReply = await this.styleLearner.generateStyledReply(phone, text, JSON.stringify(customerInfo));
+          await this.whatsappSender.sendTextMessage(phone, styledReply);
+          console.log(`Sent styled auto-reply to ${phone}`);
+          await this.crm.logConversation(contactId, `Styled auto-reply sent`, false);
+        } catch (error) {
+          console.error('Styled reply failed:', error);
+        }
+      }
+
       console.log(`Successfully processed and synced message from ${phone}`);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -267,6 +282,22 @@ Return null if no order detected.`;
       return JSON.parse(stored);
     }
     return null;
+  }
+
+  async learnStyle(phone: string, messages: string[]) {
+    return await this.styleLearner.learnFromMessages(phone, messages);
+  }
+
+  async enableStyledAutoReply(phone: string) {
+    await this.styleLearner.enableAutoReply(phone);
+  }
+
+  async disableStyledAutoReply(phone: string) {
+    await this.styleLearner.disableAutoReply(phone);
+  }
+
+  async isStyledAutoReplyEnabled(phone: string): Promise<boolean> {
+    return await this.styleLearner.isAutoReplyEnabled(phone);
   }
 
   private generateAutoReply(urgency: { isUrgent: boolean; urgencyLevel: string }, sentiment: { sentiment: string }, customerInfo: ExtractedCustomerInfo): string {

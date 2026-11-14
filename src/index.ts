@@ -154,6 +154,50 @@ app.get('/summary/:phone', async (req, res) => {
   }
 });
 
+// Learn writing style from messages
+app.post('/style/learn/:phone', async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || messages.length < 3) {
+      return res.status(400).json({ error: 'Need at least 3 messages' });
+    }
+    const style = await processor.learnStyle(req.params.phone, messages);
+    res.json({ success: true, style });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to learn style' });
+  }
+});
+
+// Enable styled auto-reply for a phone
+app.post('/style/enable/:phone', async (req, res) => {
+  try {
+    await processor.enableStyledAutoReply(req.params.phone);
+    res.json({ success: true, message: 'Styled auto-reply enabled' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to enable auto-reply' });
+  }
+});
+
+// Disable styled auto-reply for a phone
+app.post('/style/disable/:phone', async (req, res) => {
+  try {
+    await processor.disableStyledAutoReply(req.params.phone);
+    res.json({ success: true, message: 'Styled auto-reply disabled' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to disable auto-reply' });
+  }
+});
+
+// Check if styled auto-reply is enabled
+app.get('/style/status/:phone', async (req, res) => {
+  try {
+    const enabled = await processor.isStyledAutoReplyEnabled(req.params.phone);
+    res.json({ enabled });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check status' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`WhatsApp CRM Sync server running on port ${PORT}`);
