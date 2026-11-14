@@ -12,6 +12,8 @@ import { CRMInterface } from './crmInterface.js';
 import { AnalyticsService } from './analytics.js';
 import { SentimentAnalyzer } from './sentimentAnalyzer.js';
 import { WhatsAppSender } from '../integrations/whatsappSender.js';
+import { WorkflowEngine } from './workflowEngine.js';
+import { WorkflowContext } from '../types/workflow.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -21,6 +23,7 @@ export class MessageProcessor {
   private woocommerce?: WooCommerceIntegration;
   private calendar?: GoogleCalendarIntegration;
   private whatsappSender?: WhatsAppSender;
+  private workflowEngine: WorkflowEngine;
   private leadScorer: LeadScorer;
   private analytics: AnalyticsService;
   private conversationHistory: Map<string, string[]> = new Map();
@@ -37,6 +40,7 @@ export class MessageProcessor {
     this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
     this.leadScorer = new LeadScorer();
     this.analytics = new AnalyticsService();
+    this.workflowEngine = new WorkflowEngine(whatsappConfig ? new WhatsAppSender(whatsappConfig.phoneNumberId, whatsappConfig.accessToken) : undefined);
 
     if (crmConfig.type === 'hubspot') {
       this.crm = new HubSpotIntegration(crmConfig.apiKey);
@@ -176,6 +180,17 @@ Return null if no order detected.`;
 
       const intent = await this.aiAnalyzer.classifyIntent(text);
       this.analytics.recordMessage(intent);
+
+      const workflowContext: WorkflowContext = {
+        message: text,
+        intent,
+        sentiment: sentiment.sentiment,
+        urgency: urgency.urgencyLevel,
+        customerInfo,
+        contactId: contactId as number
+      };
+
+      await this.workflowEngine.executeWorkflows(workflowContext);
 
       if (this.whatsappSender) {
         if (urgency.isUrgent || sentiment.sentiment === 'negative') {
