@@ -1,6 +1,7 @@
 import { HubSpotClient } from '@hubspot/api-client';
 import { HubSpotContact, HubSpotNote, ExtractedCustomerInfo } from '../types/index.js';
 import { CRMInterface } from '../services/crmInterface.js';
+import { withRetry } from '../utils/retry.js';
 
 export class HubSpotIntegration implements CRMInterface {
   private client: HubSpotClient;
@@ -10,82 +11,88 @@ export class HubSpotIntegration implements CRMInterface {
   }
 
   async findOrCreateContact(phone: string, info: ExtractedCustomerInfo): Promise<string | number> {
-    try {
-      // Search for existing contact by phone
-      const searchResponse = await this.client.crm.contacts.searchApi.doSearch({
-        filterGroups: [
-          {
-            filters: [
-              {
-                propertyName: 'phone',
-                operator: 'EQ',
-                value: phone
-              }
-            ]
-          }
-        ]
-      });
+    return await withRetry(async () => {
+      try {
+        const searchResponse = await this.client.crm.contacts.searchApi.doSearch({
+          filterGroups: [
+            {
+              filters: [
+                {
+                  propertyName: 'phone',
+                  operator: 'EQ',
+                  value: phone
+                }
+              ]
+            }
+          ]
+        });
 
-      if (searchResponse.results && searchResponse.results.length > 0) {
-        console.log(`Found existing contact: ${searchResponse.results[0].id}`);
-        return Number(searchResponse.results[0].id);
-      }
-
-      // Create new contact
-      const contact: HubSpotContact = {
-        email: info.email,
-        firstname: info.name?.split(' ')[0],
-        lastname: info.name?.split(' ').slice(1).join(' '),
-        phone: phone,
-        company: info.company,
-        properties: {
-          ...info,
-          whatsapp_phone: phone
+        if (searchResponse.results && searchResponse.results.length > 0) {
+          console.log(`Found existing contact: ${searchResponse.results[0].id}`);
+          return Number(searchResponse.results[0].id);
         }
-      };
 
-      const createResponse = await this.client.crm.contacts.basicApi.create(contact);
-      console.log(`Created new contact: ${createResponse.id}`);
-      return Number(createResponse.id);
-    } catch (error) {
-      console.error('HubSpot contact error:', error);
-      throw error;
-    }
+        const contact: HubSpotContact = {
+          email: info.email,
+          firstname: info.name?.split(' ')[0],
+          lastname: info.name?.split(' ').slice(1).join(' '),
+          phone: phone,
+          company: info.company,
+          properties: {
+            ...info,
+            whatsapp_phone: phone
+          }
+        };
+
+        const createResponse = await this.client.crm.contacts.basicApi.create(contact);
+        console.log(`Created new contact: ${createResponse.id}`);
+        return Number(createResponse.id);
+      } catch (error) {
+        console.error('HubSpot contact error:', error);
+        throw error;
+      }
+    });
   }
 
   async logConversation(contactId: string | number, message: string, fromCustomer: boolean): Promise<void> {
-    try {
-      const note: HubSpotNote = {
-        engagement: {
-          type: 'NOTE'
-        },
-        metadata: {
-          body: `[WhatsApp - ${fromCustomer ? 'Customer' : 'Business'}]: ${message}`
-        },
-        associations: {
-          contactIds: [contactId]
-        }
-      };
+    await withRetry(async () => {
+      try {
+        const note: HubSpotNote = {
+          engagement: {
+            type: 'NOTE'
+          },
+          metadata: {
+            body: `[WhatsApp - ${fromCustomer ? 'Customer' : 'Business'}]: ${message}`
+          },
+          associations: {
+            contactIds: [contactId]
+          }
+        };
 
-      await this.client.crm.engagements.notesApi.create(note);
-      console.log(`Logged note for contact ${contactId}`);
-    } catch (error) {
-      console.error('HubSpot note error:', error);
-    }
+        await this.client.crm.engagements.notesApi.create(note);
+        console.log(`Logged note for contact ${contactId}`);
+      } catch (error) {
+        console.error('HubSpot note error:', error);
+        throw error;
+      }
+    });
   }
 
   async updateContact(contactId: string | number, info: ExtractedCustomerInfo): Promise<void> {
-    try {
-      const contact: HubSpotContact = {
-        properties: {
-          ...info
-        }
-      };
+    await withRetry(async () => {
+      try {
+        const contact: HubSpotContact = {
+          properties: {
+            ...info
+          }
+        };
 
-      await this.client.crm.contacts.basicApi.update(contactId, contact);
-      console.log(`Updated contact ${contactId}`);
-    } catch (error) {
-      console.error('HubSpot update error:', error);
-    }
+        await this.client.crm.contacts.basicApi.update(contactId, contact);
+        console.log(`Updated contact ${contactId}`);
+      } catch (error) {
+        console.error('HubSpot update error:', error);
+        throw error;
+      }
+    });
   }
 }
