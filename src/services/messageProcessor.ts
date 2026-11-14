@@ -5,6 +5,7 @@ import { HubSpotIntegration } from '../integrations/hubspot.js';
 import { SalesforceIntegration } from '../integrations/salesforce.js';
 import { PipedriveIntegration } from '../integrations/pipedrive.js';
 import { ShopifyIntegration } from '../integrations/shopify.js';
+import { WooCommerceIntegration } from '../integrations/woocommerce.js';
 import { LeadScorer } from './leadScorer.js';
 import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
 import { CRMInterface } from './crmInterface.js';
@@ -17,6 +18,7 @@ export class MessageProcessor {
   private sentimentAnalyzer: SentimentAnalyzer;
   private crm: CRMInterface;
   private shopify?: ShopifyIntegration;
+  private woocommerce?: WooCommerceIntegration;
   private calendar?: GoogleCalendarIntegration;
   private whatsappSender?: WhatsAppSender;
   private leadScorer: LeadScorer;
@@ -27,6 +29,7 @@ export class MessageProcessor {
     openaiKey: string,
     crmConfig: { type: CRMType; apiKey: string; instanceUrl?: string },
     shopifyConfig?: { storeUrl: string; accessToken: string },
+    woocommerceConfig?: { storeUrl: string; consumerKey: string; consumerSecret: string },
     calendarConfig?: { accessToken: string; calendarId?: string },
     whatsappConfig?: { phoneNumberId: string; accessToken: string }
   ) {
@@ -45,6 +48,9 @@ export class MessageProcessor {
 
     if (shopifyConfig) {
       this.shopify = new ShopifyIntegration(shopifyConfig.storeUrl, shopifyConfig.accessToken);
+    }
+    if (woocommerceConfig) {
+      this.woocommerce = new WooCommerceIntegration(woocommerceConfig.storeUrl, woocommerceConfig.consumerKey, woocommerceConfig.consumerSecret);
     }
     if (calendarConfig) {
       this.calendar = new GoogleCalendarIntegration(calendarConfig.accessToken, calendarConfig.calendarId);
@@ -139,6 +145,19 @@ Return null if no order detected.`;
           const orderId = await this.shopify.createOrder(order);
           console.log(`Created Shopify order: ${orderId}`);
           await this.crm.logConversation(contactId, `Created Shopify order #${orderId}`, false);
+
+          const orderValue = order.products.reduce((sum, p) => sum + (p.price || 0), 0);
+          this.analytics.recordOrder(orderValue, order.products[0]?.name || 'unknown');
+        }
+      }
+
+      if (this.woocommerce) {
+        const order = await this.extractOrderInfo(text);
+        if (order) {
+          order.customer.phone = phone;
+          const orderId = await this.woocommerce.createOrder(order);
+          console.log(`Created WooCommerce order: ${orderId}`);
+          await this.crm.logConversation(contactId, `Created WooCommerce order #${orderId}`, false);
 
           const orderValue = order.products.reduce((sum, p) => sum + (p.price || 0), 0);
           this.analytics.recordOrder(orderValue, order.products[0]?.name || 'unknown');
