@@ -19,6 +19,7 @@ import { StorageAdapter } from '../types/storage.js';
 import { OrderParser } from './orderParser.js';
 import { ConversationSummarizer, ConversationSummary } from './conversationSummarizer.js';
 import { StyleLearner } from './styleLearner.js';
+import { DashboardService } from './dashboard.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -35,6 +36,7 @@ export class MessageProcessor {
   private orderParser: OrderParser;
   private summarizer: ConversationSummarizer;
   private styleLearner: StyleLearner;
+  private dashboard: DashboardService;
   private summaryThreshold: number;
 
   constructor(
@@ -57,6 +59,7 @@ export class MessageProcessor {
     this.orderParser = new OrderParser(productCatalog);
     this.summarizer = new ConversationSummarizer(openaiKey);
     this.styleLearner = new StyleLearner(openaiKey, storage);
+    this.dashboard = new DashboardService(this.analytics);
     this.summaryThreshold = summaryThreshold;
 
     if (crmConfig.type === 'hubspot') {
@@ -157,6 +160,7 @@ Return null if no order detected.`;
 
       const contactId = await this.crm.findOrCreateContact(phone, customerInfo);
       await this.crm.logConversation(contactId, text, true);
+      this.dashboard.logActivity('contact', `Contact created/updated: ${phone}`);
 
       if (Object.keys(customerInfo).length > 0) {
         await this.crm.updateContact(contactId, customerInfo);
@@ -179,6 +183,7 @@ Return null if no order detected.`;
           const orderId = await this.shopify.createOrder(order);
           console.log(`Created Shopify order: ${orderId}`);
           await this.crm.logConversation(contactId, `Created Shopify order #${orderId}`, false);
+          this.dashboard.logActivity('order', `Shopify order created: #${orderId}`);
 
           const orderValue = order.products.reduce((sum, p) => sum + (p.price || 0), 0);
           this.analytics.recordOrder(orderValue, order.products[0]?.name || 'unknown');
@@ -192,6 +197,7 @@ Return null if no order detected.`;
           const orderId = await this.woocommerce.createOrder(order);
           console.log(`Created WooCommerce order: ${orderId}`);
           await this.crm.logConversation(contactId, `Created WooCommerce order #${orderId}`, false);
+          this.dashboard.logActivity('order', `WooCommerce order created: #${orderId}`);
 
           const orderValue = order.products.reduce((sum, p) => sum + (p.price || 0), 0);
           this.analytics.recordOrder(orderValue, order.products[0]?.name || 'unknown');
@@ -204,6 +210,7 @@ Return null if no order detected.`;
           const eventId = await this.calendar.createAppointment(appointment);
           console.log(`Created calendar event: ${eventId}`);
           await this.crm.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
+          this.dashboard.logActivity('appointment', `Appointment scheduled: ${appointment.title}`);
           this.analytics.recordAppointment(appointment.startTime);
         }
       }
@@ -298,6 +305,22 @@ Return null if no order detected.`;
 
   async isStyledAutoReplyEnabled(phone: string): Promise<boolean> {
     return await this.styleLearner.isAutoReplyEnabled(phone);
+  }
+
+  getDashboardMetrics() {
+    return this.dashboard.getMetrics();
+  }
+
+  getTopIntents(limit: number = 5) {
+    return this.dashboard.getTopIntents(limit);
+  }
+
+  getSentimentTrend() {
+    return this.dashboard.getSentimentTrend();
+  }
+
+  exportMetrics(format: 'json' | 'csv' = 'json') {
+    return this.dashboard.exportMetrics(format);
   }
 
   private generateAutoReply(urgency: { isUrgent: boolean; urgencyLevel: string }, sentiment: { sentiment: string }, customerInfo: ExtractedCustomerInfo): string {

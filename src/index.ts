@@ -159,6 +159,34 @@ app.get('/analytics', (req, res) => {
   res.json(analytics);
 });
 
+// Dashboard metrics endpoint
+app.get('/dashboard', (req, res) => {
+  const metrics = processor.getDashboardMetrics();
+  res.json(metrics);
+});
+
+// Top intents endpoint
+app.get('/dashboard/intents', (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 5;
+  const intents = processor.getTopIntents(limit);
+  res.json(intents);
+});
+
+// Sentiment trend endpoint
+app.get('/dashboard/sentiment-trend', (req, res) => {
+  const trend = processor.getSentimentTrend();
+  res.json(trend);
+});
+
+// Export metrics endpoint
+app.get('/dashboard/export', (req, res) => {
+  const format = (req.query.format as string) || 'json';
+  const contentType = format === 'csv' ? 'text/csv' : 'application/json';
+  const data = processor.exportMetrics(format as 'json' | 'csv');
+  res.setHeader('Content-Type', contentType);
+  res.send(data);
+});
+
 // Conversation summary endpoint
 app.get('/summary/:phone', async (req, res) => {
   try {
