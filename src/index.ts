@@ -24,6 +24,12 @@ const shopifyConfig = process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCES
   accessToken: process.env.SHOPIFY_ACCESS_TOKEN
 } : undefined;
 
+const woocommerceConfig = process.env.WOOCOMMERCE_STORE_URL && process.env.WOOCOMMERCE_CONSUMER_KEY && process.env.WOOCOMMERCE_CONSUMER_SECRET ? {
+  storeUrl: process.env.WOOCOMMERCE_STORE_URL,
+  consumerKey: process.env.WOOCOMMERCE_CONSUMER_KEY,
+  consumerSecret: process.env.WOOCOMMERCE_CONSUMER_SECRET
+} : undefined;
+
 const calendarConfig = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN ? {
   accessToken: process.env.GOOGLE_CALENDAR_ACCESS_TOKEN,
   calendarId: process.env.GOOGLE_CALENDAR_ID
@@ -38,6 +44,7 @@ const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
   crmConfig,
   shopifyConfig,
+  woocommerceConfig,
   calendarConfig,
   whatsappConfig
 );
