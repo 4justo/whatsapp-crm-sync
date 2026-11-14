@@ -3,6 +3,7 @@ import { OrderInfo } from '../types/order.js';
 import { AIAnalyzer } from './aiAnalyzer.js';
 import { HubSpotIntegration } from '../integrations/hubspot.js';
 import { SalesforceIntegration } from '../integrations/salesforce.js';
+import { PipedriveIntegration } from '../integrations/pipedrive.js';
 import { ShopifyIntegration } from '../integrations/shopify.js';
 import { LeadScorer } from './leadScorer.js';
 import { GoogleCalendarIntegration } from '../integrations/googleCalendar.js';
@@ -38,6 +39,8 @@ export class MessageProcessor {
       this.crm = new HubSpotIntegration(crmConfig.apiKey);
     } else if (crmConfig.type === 'salesforce') {
       this.crm = new SalesforceIntegration(crmConfig.instanceUrl!, crmConfig.apiKey);
+    } else if (crmConfig.type === 'pipedrive') {
+      this.crm = new PipedriveIntegration(crmConfig.apiKey, crmConfig.instanceUrl!);
     }
 
     if (shopifyConfig) {
