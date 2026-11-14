@@ -4,6 +4,8 @@ import { WhatsAppWebhookPayload, CRMType } from './types/index.js';
 import { MessageProcessor } from './services/messageProcessor.js';
 import { FileStorage } from './services/fileStorage.js';
 import { RedisStorage } from './services/redisStorage.js';
+import rateLimiter from './middleware/rateLimit.js';
+import { IdempotencyMiddleware } from './middleware/idempotency.js';
 
 dotenv.config();
 
@@ -46,6 +48,8 @@ const whatsappConfig = process.env.ENABLE_AUTO_REPLY === 'true' ? {
 
 const storage = process.env.REDIS_URL ? new RedisStorage(process.env.REDIS_URL) : new FileStorage(process.env.STORAGE_PATH || './data');
 
+const idempotency = new IdempotencyMiddleware(storage);
+
 const processor = new MessageProcessor(
   process.env.OPENAI_API_KEY!,
   crmConfig,
@@ -59,6 +63,8 @@ const processor = new MessageProcessor(
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(rateLimiter.middleware());
+app.use(idempotency.middleware());
 
 // Store raw body for signature verification (future)
 app.use((req, res, next) => {
