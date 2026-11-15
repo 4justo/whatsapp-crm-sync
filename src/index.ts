@@ -7,6 +7,8 @@ import { RedisStorage } from './services/redisStorage.js';
 import rateLimiter from './middleware/rateLimit.js';
 import { IdempotencyMiddleware } from './middleware/idempotency.js';
 import { ConfigManager } from './config/configManager.js';
+import { AIProviderFactory } from './services/aiProviderFactory.js';
+import { AIProviderConfig } from './types/aiProvider.js';
 
 dotenv.config();
 
@@ -72,8 +74,17 @@ const idempotency = new IdempotencyMiddleware(storage);
 const productCatalog = configManager.get('PRODUCT_CATALOG') ? JSON.parse(configManager.get('PRODUCT_CATALOG')!) : undefined;
 const summaryThreshold = configManager.getNumber('SUMMARY_THRESHOLD', 5);
 
+const aiProviderConfig: AIProviderConfig = {
+  type: (configManager.get('AI_PROVIDER') || 'openai') as any,
+  apiKey: configManager.get('OPENAI_API_KEY') || configManager.get('ANTHROPIC_API_KEY') || configManager.get('GOOGLE_AI_API_KEY'),
+  baseUrl: configManager.get('AI_BASE_URL'),
+  model: configManager.get('AI_MODEL')
+};
+
+const aiProvider = AIProviderFactory.create(aiProviderConfig);
+
 const processor = new MessageProcessor(
-  configManager.get('OPENAI_API_KEY')!,
+  aiProvider,
   crmConfig,
   shopifyConfig,
   woocommerceConfig,

@@ -1,16 +1,16 @@
-import OpenAI from 'openai';
+import { AIProvider } from '../types/aiProvider.js';
 import { ExtractedCustomerInfo } from '../types/index.js';
 import { AppointmentInfo } from '../types/calendar.js';
 
 export class AIAnalyzer {
-  private openai: OpenAI;
+  private aiProvider: AIProvider;
 
-  constructor(apiKey: string) {
-    this.openai = new OpenAI({ apiKey });
+  constructor(aiProvider: AIProvider) {
+    this.aiProvider = aiProvider;
   }
 
-  getOpenAI(): OpenAI {
-    return this.openai;
+  getAIProvider(): AIProvider {
+    return this.aiProvider;
   }
 
   async extractCustomerInfo(message: string, conversationHistory: string[] = []): Promise<ExtractedCustomerInfo> {
@@ -24,8 +24,8 @@ Return ONLY valid JSON. If a field is not found, omit it or set to null.`;
     ];
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages,
         temperature: 0.3,
         response_format: { type: 'json_object' }
@@ -54,8 +54,8 @@ Return ONLY valid JSON. If a field is not found, omit it or set to null.`;
 Return ONLY the category name.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
@@ -82,8 +82,8 @@ Return ONLY the category name.`;
 Return null if no appointment requested.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }

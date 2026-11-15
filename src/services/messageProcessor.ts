@@ -20,6 +20,7 @@ import { OrderParser } from './orderParser.js';
 import { ConversationSummarizer, ConversationSummary } from './conversationSummarizer.js';
 import { StyleLearner } from './styleLearner.js';
 import { DashboardService } from './dashboard.js';
+import { AIProvider } from '../types/aiProvider.js';
 
 export class MessageProcessor {
   private aiAnalyzer: AIAnalyzer;
@@ -40,7 +41,7 @@ export class MessageProcessor {
   private summaryThreshold: number;
 
   constructor(
-    openaiKey: string,
+    aiProvider: AIProvider,
     crmConfig: { type: CRMType; apiKey: string; instanceUrl?: string },
     shopifyConfig?: { storeUrl: string; accessToken: string },
     woocommerceConfig?: { storeUrl: string; consumerKey: string; consumerSecret: string },
@@ -50,15 +51,15 @@ export class MessageProcessor {
     productCatalog?: Array<{ name: string; price: number; sku?: string }>,
     summaryThreshold: number = 5
   ) {
-    this.aiAnalyzer = new AIAnalyzer(openaiKey);
-    this.sentimentAnalyzer = new SentimentAnalyzer(openaiKey);
+    this.aiAnalyzer = new AIAnalyzer(aiProvider);
+    this.sentimentAnalyzer = new SentimentAnalyzer(aiProvider);
     this.leadScorer = new LeadScorer();
     this.analytics = new AnalyticsService();
     this.workflowEngine = new WorkflowEngine(whatsappConfig ? new WhatsAppSender(whatsappConfig.phoneNumberId, whatsappConfig.accessToken) : undefined);
     this.storage = storage;
     this.orderParser = new OrderParser(productCatalog);
-    this.summarizer = new ConversationSummarizer(openaiKey);
-    this.styleLearner = new StyleLearner(openaiKey, storage);
+    this.summarizer = new ConversationSummarizer(aiProvider);
+    this.styleLearner = new StyleLearner(aiProvider, storage);
     this.dashboard = new DashboardService(this.analytics);
     this.summaryThreshold = summaryThreshold;
 
@@ -103,8 +104,8 @@ export class MessageProcessor {
 Return null if no order detected.`;
 
     try {
-      const response = await this.aiAnalyzer.getOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiAnalyzer.getAIProvider().chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }

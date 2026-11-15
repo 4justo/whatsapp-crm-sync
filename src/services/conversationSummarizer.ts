@@ -1,3 +1,5 @@
+import { AIProvider } from '../types/aiProvider.js';
+
 export interface ConversationSummary {
   phone: string;
   customerName?: string;
@@ -11,11 +13,10 @@ export interface ConversationSummary {
 }
 
 export class ConversationSummarizer {
-  private openai: any;
+  private aiProvider: AIProvider;
 
-  constructor(openaiKey: string) {
-    const OpenAI = require('openai');
-    this.openai = new OpenAI({ apiKey: openaiKey });
+  constructor(aiProvider: AIProvider) {
+    this.aiProvider = aiProvider;
   }
 
   async summarizeConversation(
@@ -36,8 +37,8 @@ Focus on what the customer wants, questions asked, and outcomes.
 Be concise and professional.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: conversationText }

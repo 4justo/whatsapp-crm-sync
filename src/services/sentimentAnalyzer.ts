@@ -1,10 +1,10 @@
-import OpenAI from 'openai';
+import { AIProvider } from '../types/aiProvider.js';
 
 export class SentimentAnalyzer {
-  private openai: OpenAI;
+  private aiProvider: AIProvider;
 
-  constructor(apiKey: string) {
-    this.openai = new OpenAI({ apiKey });
+  constructor(aiProvider: AIProvider) {
+    this.aiProvider = aiProvider;
   }
 
   async analyzeSentiment(message: string): Promise<{
@@ -18,8 +18,8 @@ export class SentimentAnalyzer {
 - emotions: array of detected emotions (e.g., "happy", "frustrated", "angry", "confused", "excited")`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
@@ -51,8 +51,8 @@ export class SentimentAnalyzer {
 - reason: brief explanation if urgent`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }

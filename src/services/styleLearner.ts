@@ -1,4 +1,5 @@
 import { StorageAdapter } from '../types/storage.js';
+import { AIProvider } from '../types/aiProvider.js';
 
 export interface MessageStyle {
   tone: 'formal' | 'casual' | 'friendly' | 'professional' | 'urgent';
@@ -18,13 +19,12 @@ export interface StyleProfile {
 }
 
 export class StyleLearner {
-  private openai: any;
+  private aiProvider: AIProvider;
   private storage: StorageAdapter;
   private profiles: Map<string, StyleProfile> = new Map();
 
-  constructor(openaiKey: string, storage: StorageAdapter) {
-    const OpenAI = require('openai');
-    this.openai = new OpenAI({ apiKey: openaiKey });
+  constructor(aiProvider: AIProvider, storage: StorageAdapter) {
+    this.aiProvider = aiProvider;
     this.storage = storage;
   }
 
@@ -44,8 +44,8 @@ Return JSON with:
 - responseTime: immediate/quick/normal/delayed (estimate from patterns)`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: messages.join('\n---\n') }
@@ -120,8 +120,8 @@ Generate a natural, helpful response that matches the learned style.
 Be concise and conversational.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.aiProvider.chatCompletions.create({
+        model: 'default',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: incomingMessage }
