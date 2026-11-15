@@ -1,199 +1,138 @@
 # WhatsApp CRM Sync
 
-**AI-powered automation that syncs WhatsApp Business conversations to HubSpot CRM in real-time.**
+A comprehensive WhatsApp Business automation suite for syncing conversations to CRM, processing orders, booking appointments, and providing AI-powered insights.
 
-Never lose a customer conversation again. Automatically extract customer information, classify intent, and sync everything to your CRM - no manual data entry required.
+## Features
 
-## 🎯 The Problem
+- **CRM Integration**: HubSpot, Salesforce, Pipedrive, Notion
+- **E-commerce**: Shopify, WooCommerce order processing
+- **Appointments**: Google Calendar with conflict detection
+- **AI-Powered**:
+  - Conversation summarization
+  - Style learning for personalized auto-replies
+  - Sentiment and urgency detection
+  - Intent classification
+- **Analytics Dashboard**: Metrics, trends, and export
+- **Workflow Automation**: Trigger-based actions
+- **Industry Presets**: Retail, Services, Restaurant, Support, Simple mode
 
-Businesses today lose valuable customer data because:
-- WhatsApp conversations happen in isolation from CRM systems
-- Sales teams waste hours manually copying conversations
-- Customer intent and pain points are never captured
-- Follow-ups happen too late or not at all
+## Quick Start
 
-## ✨ The Solution
-
-This tool automatically:
-- **Extracts customer info** from WhatsApp messages using AI (name, email, company, budget, timeline)
-- **Classifies intent** (product inquiry, support request, sales lead, appointment)
-- **Syncs to HubSpot** - creates contacts, logs conversations, updates properties
-- **Tracks history** across all conversations for context
-- **Routes leads** based on customer needs
-
-## 🚀 Use Cases
-
-- **Sales teams**: Capture leads from WhatsApp, extract budget/timeline, route to right rep
-- **Support teams**: Log all customer conversations, identify pain points, track issues
-- **E-commerce**: Convert WhatsApp inquiries to HubSpot deals automatically
-- **Service businesses**: Book appointments from WhatsApp, sync customer details
-- **Consultants**: Manage client conversations, track requirements, follow up automatically
-
-## ✅ Current Features (MVP)
-
-- **WhatsApp Business API Integration**
-  - Real-time webhook receiver
-  - Message parsing and validation
-  - Webhook signature verification
-
-- **AI-Powered Analysis**
-  - Extract customer information (name, email, phone, company)
-  - Identify customer intent (inquiry, support, sales, appointment)
-  - Detect pain points, budget, timeline
-  - Conversation history tracking
-
-- **HubSpot CRM Integration**
-  - Automatic contact creation/finding by phone
-  - Conversation logging as engagement notes
-  - Contact property updates
-  - Two-way data sync ready
-
-## Setup
-
-### Prerequisites
-
-- Node.js 20+
-- WhatsApp Business API account
-- HubSpot account with API key
-- OpenAI API key
-
-### Installation
+### 1. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### Configuration
+### 2. Configure Environment
 
-1. Copy `.env.example` to `.env`
-2. Fill in required environment variables:
+Copy `.env.example` to `.env` and configure:
 
-```bash
-# WhatsApp Business API (from Meta Developers)
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+```env
+OPENAI_API_KEY=your_openai_key
+WHATSAPP_PHONE_NUMBER_ID=your_phone_id
 WHATSAPP_ACCESS_TOKEN=your_access_token
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=your_secret_token
-
-# HubSpot CRM (from HubSpot Settings → Integrations → API Key)
-HUBSPOT_API_KEY=your_hubspot_api_key
-
-# OpenAI (from platform.openai.com)
-OPENAI_API_KEY=your_openai_api_key
-
-# Server
-PORT=3000
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=random_token
 ```
 
-### Get Your Credentials
+### 3. Choose Industry Preset (Optional)
 
-**WhatsApp Business API:**
-1. Go to [Meta for Developers](https://developers.facebook.com)
-2. Create a WhatsApp Business App
-3. Get Phone Number ID and Access Token
-4. Choose a Webhook Verify Token (any secret string)
+Set `INDUSTRY_PRESET` in `.env`:
+- `retail` - E-commerce focus
+- `services` - Appointment booking focus
+- `restaurant` - Reservation focus
+- `support` - Customer service focus
+- `simple` - Basic automation
 
-**HubSpot API Key:**
-1. Go to HubSpot → Settings → Integrations → API Key
-2. Create private app or generate API key
+Or enable `SIMPLE_MODE=true` for minimal setup.
 
-**OpenAI API Key:**
-1. Go to [platform.openai.com](https://platform.openai.com)
-2. Create API key in API keys section
-
-### Running
+### 4. Start the Server
 
 ```bash
-npm run dev
+npm start
 ```
 
-Server starts on `http://localhost:3000`
+### 5. Set Up Webhook
 
-### Webhook Setup
+See [WEBHOOK_SETUP.md](./WEBHOOK_SETUP.md) for detailed instructions.
 
-1. Configure your WhatsApp Business API webhook URL:
-   ```
-   https://your-domain.com/webhook
-   ```
-2. Set verify token to match `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+## API Endpoints
 
-## 💡 How It Works
+### Webhook
+- `GET /webhook` - Webhook verification
+- `POST /webhook` - Receive WhatsApp messages
+
+### Analytics
+- `GET /analytics` - Basic metrics
+- `GET /dashboard` - Full dashboard metrics
+- `GET /dashboard/intents?limit=5` - Top intents
+- `GET /dashboard/sentiment-trend` - Sentiment trend
+- `GET /dashboard/export?format=csv` - Export metrics
+
+### Conversation
+- `GET /summary/:phone` - Get conversation summary
+
+### Style Learning
+- `POST /style/learn/:phone` - Learn writing style
+- `POST /style/enable/:phone` - Enable styled auto-reply
+- `POST /style/disable/:phone` - Disable styled auto-reply
+- `GET /style/status/:phone` - Check auto-reply status
+
+### Setup
+- `GET /setup/presets` - List industry presets
+- `GET /setup/preset/:name` - Get preset details
+- `GET /setup/guide` - Print setup guide
+
+### Health
+- `GET /health` - Health check
+
+## Configuration
+
+### CRM (choose one)
+- `CRM_TYPE=hubspot` with `HUBSPOT_API_KEY`
+- `CRM_TYPE=salesforce` with `SALESFORCE_INSTANCE_URL` and `SALESFORCE_ACCESS_TOKEN`
+- `CRM_TYPE=pipedrive` with `PIPEDRIVE_API_TOKEN` and `PIPEDRIVE_COMPANY_DOMAIN`
+- `CRM_TYPE=notion` with `NOTION_ACCESS_TOKEN` and `NOTION_DATABASE_ID`
+
+### E-commerce (optional)
+- Shopify: `SHOPIFY_STORE_URL`, `SHOPIFY_ACCESS_TOKEN`
+- WooCommerce: `WOOCOMMERCE_STORE_URL`, `WOOCOMMERCE_CONSUMER_KEY`, `WOOCOMMERCE_CONSUMER_SECRET`
+
+### Calendar (optional)
+- Google Calendar: `GOOGLE_CALENDAR_ACCESS_TOKEN`, `GOOGLE_CALENDAR_ID`
+
+### Storage (optional)
+- File storage: `STORAGE_PATH=./data` (default)
+- Redis: `REDIS_URL=redis://localhost:6379`
+
+### AI Features
+- Summarization: `SUMMARY_THRESHOLD=5`
+- Style learning: `STYLE_LEARNING_ENABLED=true`
+- Auto-reply: `ENABLE_AUTO_REPLY=true`
+
+## Architecture
 
 ```
-Customer sends WhatsApp message
-         ↓
-Webhook receives message
-         ↓
-AI analyzes message
-├─ Extracts: name, email, company, phone
-├─ Identifies: intent, pain points, budget, timeline
-└─ Tracks: conversation history
-         ↓
-HubSpot CRM
-├─ Finds or creates contact
-├─ Logs conversation as note
-└─ Updates contact properties
-         ↓
-Sales/Support team sees complete customer context
+WhatsApp Message
+    ↓
+MessageProcessor
+    ↓
+├── AI Analysis (intent, sentiment, urgency, extraction)
+├── CRM Sync (contact creation, conversation logging)
+├── Order Processing (Shopify, WooCommerce)
+├── Appointment Booking (Google Calendar)
+├── Workflow Execution (trigger-based actions)
+├── Style Learning (personalized replies)
+└── Analytics (metrics tracking)
 ```
 
-## 🛠️ Tech Stack
+## Development
 
-- **Node.js + TypeScript** - Fast, type-safe runtime
-- **Express** - Web server for webhook handling
-- **OpenAI GPT-4o-mini** - AI-powered message analysis
-- **HubSpot API** - CRM integration
-- **WhatsApp Business API** - Message receiving
+```bash
+npm run dev  # Watch mode with tsx
+npm test     # Run tests
+```
 
-## 📦 Installation
+## License
 
-## 🗺️ Roadmap
-
-### Phase 2: Order Processing
-- [ ] Shopify integration - create orders from WhatsApp
-- [ ] WooCommerce integration
-- [ ] Square integration
-- [ ] Automatic order confirmation via WhatsApp
-- [ ] Inventory updates
-
-### Phase 3: Lead Management
-- [ ] Lead scoring based on conversation
-- [ ] Automatic lead routing to sales reps
-- [ ] Follow-up scheduling
-- [ ] Pipeline stage progression
-- [ ] Lead qualification criteria
-
-### Phase 4: Appointment Booking
-- [ ] Google Calendar integration
-- [ ] Calendly integration
-- [ ] Natural language time parsing
-- [ ] Automatic calendar invites
-- [ ] Reminder notifications
-
-### Phase 5: Advanced Features
-- [ ] Additional CRM integrations (Salesforce, Pipedrive, Notion)
-- [ ] Visual workflow builder
-- [ ] Analytics dashboard
-- [ ] Multi-language support
-- [ ] Sentiment analysis
-- [ ] WhatsApp message sending (two-way sync)
-
-## 🤝 Contributing
-
-Contributions welcome! This is an active project with a clear roadmap. Feel free to:
-- Open issues for bugs or feature requests
-- Submit pull requests
-- Suggest new integrations
-
-## 📄 License
-
-MIT License - feel free to use this for personal or commercial projects.
-
-## 🆘 Support
-
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Review setup guide in README
-
-## 🌟 Star History
-
-If this project helps you, please consider giving it a star!
+MIT
