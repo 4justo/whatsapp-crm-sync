@@ -207,11 +207,19 @@ Return null if no order detected.`;
       if (this.calendar) {
         const appointment = await this.aiAnalyzer.extractAppointmentInfo(text);
         if (appointment) {
-          const eventId = await this.calendar.createAppointment(appointment);
-          console.log(`Created calendar event: ${eventId}`);
-          await this.crm.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
-          this.dashboard.logActivity('appointment', `Appointment scheduled: ${appointment.title}`);
-          this.analytics.recordAppointment(appointment.startTime);
+          const hasConflict = await this.calendar.checkConflict(appointment.startTime, appointment.endTime);
+          if (hasConflict) {
+            console.log(`Appointment conflict detected for ${appointment.startTime}`);
+            if (this.whatsappSender) {
+              await this.whatsappSender.sendTextMessage(phone, 'Sorry, that time slot is already booked. Please choose a different time.');
+            }
+          } else {
+            const eventId = await this.calendar.createAppointment(appointment);
+            console.log(`Created calendar event: ${eventId}`);
+            await this.crm.logConversation(contactId, `Scheduled appointment: ${appointment.title}`, false);
+            this.dashboard.logActivity('appointment', `Appointment scheduled: ${appointment.title}`);
+            this.analytics.recordAppointment(appointment.startTime);
+          }
         }
       }
 

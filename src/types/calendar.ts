@@ -6,6 +6,7 @@ export interface AppointmentInfo {
   attendeeEmail?: string;
   attendeeName?: string;
   location?: string;
+  timezone?: string;
 }
 
 export interface GoogleCalendarEvent {
