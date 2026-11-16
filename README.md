@@ -1,4 +1,4 @@
-# WhatsApp CRM Sync
+# ChatFlow
 
 A comprehensive WhatsApp Business automation suite for syncing conversations to CRM, processing orders, booking appointments, and providing AI-powered insights.
 

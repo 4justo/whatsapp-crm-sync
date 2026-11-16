@@ -1,6 +1,6 @@
-# WhatsApp Webhook Setup Guide
+# ChatFlow Webhook Setup Guide
 
-This guide explains how to set up the WhatsApp Business webhook for the CRM Sync bot.
+This guide explains how to set up the WhatsApp Business webhook for ChatFlow.
 
 ## Prerequisites
 
@@ -29,13 +29,13 @@ ENABLE_AUTO_REPLY=true
    - Generate and copy **Access Token**
    - Choose a **Webhook Verify Token** (any random string)
 
-## Step 2: Start the Bot
+## Step 2: Start ChatFlow
 
 ```bash
 npm start
 ```
 
-The bot will start on the configured port (default 3000).
+ChatFlow will start on the configured port (default 3000).
 
 ## Step 3: Make Your Server Public
 
